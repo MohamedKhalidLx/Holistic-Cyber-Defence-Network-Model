@@ -1,0 +1,146 @@
+enable
+configure terminal
+hostname R2
+security passwords min-length 10
+enable secret admin12345
+ip domain-name nti.com
+username admin secret admin12345
+crypto key generate rsa
+---------------------------> 1024
+line console 0
+login local
+exit
+line aux 0
+login local
+exit
+line vty 0 4
+login local
+transport input ssh
+exit
+login block-for 60 attempts 4 within 15
+no ip domain-lookup
+banner motd #Unauthorized access is prohibited. R2#
+service password-encryption
+interface G0/0/0
+ip address 192.168.10.65 255.255.255.224
+no shutdown
+exit
+interface G0/0/1
+ip address 192.168.10.1 255.255.255.252
+no shutdown
+exit
+interface S0/1/0
+ip address 192.168.10.10 255.255.255.252
+no shutdown
+exit
+interface S0/1/1
+ip address 192.168.10.13 255.255.255.252
+no shutdown
+exit
+<Basics Configuration>---------------------------------
+end
+wr
+<OSPF Configuration + MD5 Authentication>------------------------------------
+configure terminal
+router ospf 1
+router-id 2.2.2.2
+passive-interface G0/0/0
+network 192.168.10.64 0.0.0.31 area 0
+network 192.168.10.0 0.0.0.3 area 0
+network 192.168.10.8 0.0.0.3 area 0
+network 192.168.10.12 0.0.0.3 area 0
+exit
+interface S0/1/0
+ip ospf authentication message-digest
+ip ospf message-digest-key 1 md5 cisco12345
+exit
+interface S0/1/1
+ip ospf authentication message-digest
+ip ospf message-digest-key 1 md5 cisco12345
+exit
+interface G0/0/1
+ip ospf authentication message-digest
+ip ospf message-digest-key 1 md5 cisco12345
+exit
+<Save>-------------------------------------------------
+end
+wr
+<Configure NTP & NTP Authentication "TACACS+" & Syslog "RADIUS">-------
+ntp server 192.168.10.36
+ntp update-calendar
+ntp trusted-key 1
+ntp authentication-key 1 md5 cisco12345
+service timestamps log datetime msec
+logging host 192.168.1.35
+logging trap debugging
+logging on
+aaa new-model
+tacacs-server host 192.168.10.35 key cisco12345
+radius server RADIUS
+address ipv4 192.168.10.36 auth-port 1645
+key cisco12345
+exit
+aaa authentication login default group tacacs+ group radius local
+line console 0
+login authentication default
+exit
+line vty 0 4
+login authentication default
+exit
+<Save>-------------------------------------------------
+end
+wr
+<IPS>-------------------------------------------------------
+configure terminal
+license boot level securityk9
+exit
+mkdir IPSDIR
+<enter>
+configure terminal
+ip ips config location flash:IPSDIR
+ip ips name IOSIPS
+ip ips notify log
+ip ips signature-category
+category all
+retired true
+exit
+category ios_ips basic
+retired false
+exit
+exit
+<Enter>---------------------------
+interface G0/0/0
+ip ips IOSIPS out
+exit
+ip ips signature-definition
+signature 2004 0
+status
+retired false
+enabled true
+exit
+engine
+event-action produce-alert
+event-action deny-packet-inline
+exit
+exit
+exit
+<Enter>-----------------------------
+<Save>-----------------------------------------------------
+end
+wr
+<Role-based Administrative access>-------------------------------------------------------
+enable view
+configure terminal
+parser view admin-role-bs
+secret role123456
+commands exec include all show
+commands exec include all config terminal
+commands exec include all debug
+end
+configure terminal
+parser view tech-role-bs
+secret role123456
+commands exec include all show
+end
+
+

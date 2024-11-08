@@ -1,0 +1,69 @@
+enable
+configure terminal
+hostname S2
+enable secret admin12345
+ip domain-name nti.com
+username admin secret admin12345
+crypto key generate rsa
+---------------------------> 1024
+line console 0
+login local
+exit
+line vty 0 4
+login local
+transport input ssh
+exit
+no ip domain-lookup
+banner motd #Unauthorized access is prohibited. S2#
+service password-encryption
+vlan 1
+name MANAGEMENT-SVI
+exit
+vlan 40
+name UNUSED-PORTS
+exit
+interface vlan 1
+ip address 192.168.10.66 255.255.255.224
+no shutdown
+exit
+ip default-gateway 192.168.10.65
+<Basics Configuration>---------------------------------
+end
+wr
+<Configure Switch Security>--------------------------
+interface f0/1
+switchport mode access
+exit
+interface G0/2
+switchport mode access
+exit
+interface f0/24
+switchport mode trunk
+switchport nonegotiate
+exit
+interface range f0/2 - 23 , G0/1
+switchport mode access
+switchport access vlan 40
+shutdown
+exit
+<Configure NTP & NTP Authentication "TACACS+" & Syslog "RADIUS">-------
+ntp server 192.168.10.36
+ntp trusted-key 1
+ntp authentication-key 1 md5 cisco12345
+service timestamps log datetime msec
+logging host 192.168.1.35
+logging trap debugging
+logging on
+aaa new-model
+tacacs-server host 192.168.10.35 key cisco12345
+radius-server host 192.168.10.36 key cisco12345
+aaa authentication login default group tacacs+ group radius local
+line console 0
+login authentication default
+exit
+line vty 0 4
+login authentication default
+exit
+<Save>-------------------------------------------------
+end
+wr

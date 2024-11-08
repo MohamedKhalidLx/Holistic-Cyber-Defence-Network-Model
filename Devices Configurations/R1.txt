@@ -1,0 +1,109 @@
+enable
+configure terminal
+hostname R1
+security passwords min-length 10
+enable secret admin12345
+ip domain-name nti.com
+username admin secret admin12345
+crypto key generate rsa 
+---------------------------> 1024
+line console 0
+login local
+exit
+line aux 0
+login local
+exit
+line vty 0 4
+login local
+transport input ssh
+exit
+login block-for 60 attempts 4 within 15
+no ip domain-lookup
+banner motd #Unauthorized access is prohibited. R1#
+service password-encryption
+interface G0/0/0
+ip address 192.168.10.33 255.255.255.224
+no shutdown
+exit
+interface S0/1/0
+ip address 192.168.10.5 255.255.255.252
+no shutdown
+exit
+interface S0/1/1
+ip address 192.168.10.9 255.255.255.252
+no shutdown
+exit
+interface loopback0
+ip address 192.168.10.97 255.255.255.224
+no shutdown
+exit
+interface G0/0/1
+ip address 200.1.1.1 255.255.255.224
+no shutdown
+exit
+<Basics Configuration>---------------------------------
+end
+wr
+<OSPF Configuration + MD5 Authentication>------------------------------------
+configure terminal
+ip route 0.0.0.0 0.0.0.0 loopback0
+router ospf 1
+router-id 1.1.1.1
+passive-interface G0/0/0
+passive-interface loopback0
+network 192.168.10.32 0.0.0.31 area 0
+network 192.168.10.4 0.0.0.3 area 0
+network 192.168.10.8 0.0.0.3 area 0
+network 200.1.1.0 0.0.0.31 area 0
+default-information originate
+exit
+interface S0/1/0
+ip ospf authentication message-digest
+ip ospf message-digest-key 1 md5 cisco12345
+exit
+interface S0/1/1
+ip ospf authentication message-digest
+ip ospf message-digest-key 1 md5 cisco12345
+exit
+interface G0/0/1
+ip ospf authentication message-digest
+ip ospf message-digest-key 1 md5 cisco12345
+exit
+<Save>-------------------------------------------------
+end
+wr
+<Configure NTP & NTP Authentication "TACACS+" & Syslog "RADIUS">-------
+ntp server 192.168.10.36
+ntp update-calendar
+ntp trusted-key 1
+ntp authentication-key 1 md5 cisco12345
+service timestamps log datetime msec
+logging host 192.168.1.35
+logging trap debugging
+logging on
+aaa new-model
+tacacs-server host 192.168.10.35 key cisco12345
+radius server RADIUS
+address ipv4 192.168.10.36 auth-port 1645
+key cisco12345
+exit
+aaa authentication login default group tacacs+ group radius local
+line console 0
+login authentication default
+exit
+line vty 0 4
+login authentication default
+exit
+<Save>-------------------------------------------------
+end
+wr
+(Privilege level)-------------------------------------------------------
+configure terminal
+privilege exec level 5 ping
+enable secret level 5 level12345
+username support privilege 5 secret level12345
+enable secret level 15 admin12345
+username admin-level privilege 15 secret admin12345
+
+
+

@@ -1,0 +1,52 @@
+enable
+configure terminal
+hostname S9
+enable secret admin12345
+ip domain-name nti.com
+username admin secret admin12345
+crypto key generate rsa
+---------------------------> 1024
+line console 0
+login local
+exit
+line vty 0 4
+login local
+transport input ssh
+exit
+no ip domain-lookup
+banner motd #Unauthorized access is prohibited. S9#
+service password-encryption
+vlan 1
+name MANAGEMENT-SVI
+exit
+vlan 40
+name UNUSED-PORTS
+exit
+interface vlan 1
+ip address 172.16.10.2 255.255.255.0
+no shutdown
+exit
+ip default-gateway 172.16.10.1
+<Basics Configuration>---------------------------------
+end
+wr
+<Configure Switch Security>--------------------------
+interface f0/1
+switchport mode access
+switchport port-security
+switchport port-security maximum 3
+switchport port-security mac-address sticky
+switchport port-security violation shutdown
+exit
+interface G0/1
+switchport mode trunk
+switchport nonegotiate
+exit
+interface range f0/2 - 24 , G0/2
+switchport mode access
+switchport access vlan 40
+shutdown
+exit
+<Save>-------------------------------------------------
+end
+wr

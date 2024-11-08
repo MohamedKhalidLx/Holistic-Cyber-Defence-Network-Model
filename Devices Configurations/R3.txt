@@ -1,0 +1,147 @@
+enable
+configure terminal
+hostname R3
+security passwords min-length 10
+enable secret admin12345
+ip domain-name nti.com
+username admin secret admin12345
+crypto key generate rsa
+---------------------------> 1024
+line console 0
+login local
+exit
+line aux 0
+login local
+exit
+line vty 0 4
+login local
+transport input ssh
+exit
+login block-for 60 attempts 4 within 15
+no ip domain-lookup
+banner motd #Unauthorized access is prohibited. R3#
+service password-encryption
+interface S0/1/0
+ip address 192.168.10.14 255.255.255.252
+no shutdown
+exit
+interface G0/0/1
+ip address 192.168.10.161 255.255.255.224
+no shutdown
+exit
+interface G0/0/0
+ip address 192.168.10.193 255.255.255.224
+no shutdown
+exit
+<Basics Configuration>---------------------------------
+end
+wr
+<OSPF Configuration + MD5 Authentication>------------------------------------
+configure terminal
+router ospf 1
+router-id 3.3.3.3
+passive-interface G0/0/1
+passive-interface G0/0/0
+network 192.168.10.12 0.0.0.3 area 0
+network 192.168.10.160 0.0.0.31 area 0
+network 192.168.10.192 0.0.0.31 area 0
+exit
+interface S0/1/0
+ip ospf authentication message-digest
+ip ospf message-digest-key 1 md5 cisco12345
+exit
+<Save>-------------------------------------------------
+end
+wr
+<Configure NTP & NTP Authentication "TACACS+" & Syslog "RADIUS">-------
+ntp server 192.168.10.36
+ntp update-calendar
+ntp trusted-key 1
+ntp authentication-key 1 md5 cisco12345
+service timestamps log datetime msec
+logging host 192.168.1.35
+logging trap debugging
+logging on
+aaa new-model
+tacacs-server host 192.168.10.35 key cisco12345
+radius server RADIUS
+address ipv4 192.168.10.36 auth-port 1645
+key cisco12345
+exit
+aaa authentication login default group tacacs+ group radius local
+line console 0
+login authentication default
+exit
+line vty 0 4
+login authentication default
+exit
+<Save>-------------------------------------------------
+end
+wr
+<IPsec-VPN>-------------------------------------------------------
+configure terminal 
+crypto isakmp policy 1
+group 5
+authentication pre-share
+hash sha
+lifetime 3600
+encryption aes 256
+exit
+crypto isakmp key cisco12345 address 192.168.10.2
+access-list 100 permit ip 192.168.10.192 0.0.0.31 192.168.10.128 0.0.0.7
+access-list 100 permit ip 192.168.10.160 0.0.0.31 192.168.10.128 0.0.0.7
+access-list 100 permit ip 192.168.10.192 0.0.0.31 192.168.10.136 0.0.0.7
+access-list 100 permit ip 192.168.10.160 0.0.0.31 192.168.10.136 0.0.0.7
+crypto ipsec transform-set TS esp-aes 256 esp-sha-hmac
+crypto map CRYPTO-MAP 10 ipsec-isakmp
+set transform-set TS
+set peer 192.168.10.2
+set pfs group5
+set security-association lifetime seconds 900
+match address 100
+exit
+interface S0/1/0
+crypto map CRYPTO-MAP
+exit
+<Save>-------------------------------------------------
+end
+wr
+<ZPF configuration>------------------------------------
+zone security PRIVATE-1
+exit
+zone security PRIVATE-2
+exit
+zone security PUBLIC
+exit
+access-list 101 permit ip 192.168.10.160 0.0.0.31 any
+access-list 102 permit ip 192.168.10.192 0.0.0.31 any
+class-map type inspect match-any PRIVATE-1-TRAFFIC
+match access-group 101
+exit
+class-map type inspect match-any PRIVATE-2-TRAFFIC
+match access-group 102
+exit
+policy-map type inspect IN-TO-OUT-PMAP
+class type inspect PRIVATE-1-TRAFFIC
+inspect
+exit
+class type inspect PRIVATE-2-TRAFFIC
+inspect
+exit
+exit
+zone-pair security PRIVATE-1-TO-PUBLIC-ZPAIR source PRIVATE-1 destination PUBLIC
+service-policy type inspect IN-TO-OUT-PMAP
+exit
+zone-pair security PRIVATE-2-TO-PUBLIC-ZPAIR source PRIVATE-2 destination PUBLIC
+service-policy type inspect IN-TO-OUT-PMAP
+exit
+interface G0/0/1
+zone-member security PRIVATE-1
+exit
+interface G0/0/0
+zone-member security PRIVATE-2
+exit
+interface S0/1/0
+zone-member security PUBLIC
+exit
+

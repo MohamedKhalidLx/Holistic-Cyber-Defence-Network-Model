@@ -1,0 +1,74 @@
+enable
+password: <enter>
+configure terminal
+hostname NETSEC-ASA
+ntp authenticate
+ntp trusted-key 1  
+ntp authentication-key 1 md5 cisco12345  
+ntp server 192.168.10.36
+enable password admin12345
+domain-name nti.com
+crypto key generate rsa modulus 1024
+passwd admin12345
+interface G1/1
+nameif OUTSIDE
+ip address 200.1.1.2 255.255.255.224
+security-level 0
+no shutdown
+exit
+interface G1/2
+nameif INSIDE
+ip address 172.16.100.1 255.255.255.0
+security-level 100
+no shutdown
+exit
+interface G1/3
+nameif DMZ
+ip address 172.16.10.1 255.255.255.0
+security-level 50
+no shutdown
+exit
+route OUTSIDE 0.0.0.0 0.0.0.0 200.1.1.1
+username admin password admin12345
+aaa authentication ssh console LOCAL
+ssh 172.16.100.0 255.255.255.0 INSIDE
+ssh timeout 5
+object network INSIDE-NET
+subnet 172.16.100.0 255.255.255.0
+nat (INSIDE,OUTSIDE) dynamic interface
+exit
+configure terminal
+object network DMZ-SERVER
+host 172.16.10.3
+nat (DMZ,OUTSIDE) static 200.1.1.3
+exit
+configure terminal
+access-list OUTSIDE-DMZ extended permit icmp any host 172.16.10.3   			<Option for test: Configured>
+access-list OUTSIDE-DMZ extended permit tcp any host 172.16.10.3 eq 25
+access-list OUTSIDE-DMZ extended permit tcp any host 172.16.10.3 eq 443
+access-list OUTSIDE-DMZ extended permit tcp any host 172.16.10.3 eq 80
+access-group OUTSIDE-DMZ in interface OUTSIDE
+-----------------------------------<Option>-----------------------------------------------------
+access-list INSIDE-DMZ extended permit tcp 172.16.100.0 255.255.255.0 host 172.16.10.3 eq 25
+access-list INSIDE-DMZ extended permit tcp 172.16.100.0 255.255.255.0 host 172.16.10.3 eq 443
+access-list INSIDE-DMZ extended permit tcp 172.16.100.0 255.255.255.0 host 172.16.10.3 eq 80
+access-list INSIDE-DMZ extended permit icmp 172.16.100.0 255.255.255.0 host 172.16.10.3
+access-group INSIDE-DMZ in interface INSIDE
+-----------------------------------<Option>-----------------------------------------------------
+policy-map global_policy
+class inspection_default
+inspect icmp
+inspect http
+inspect tcp 						<but not working in packet tracer>
+exit
+dhcpd address 172.16.100.3-172.16.100.50 INSIDE
+dhcpd dns 8.8.8.8 interface INSIDE
+dhcpd enable INSIDE
+end
+write memory
+
+
+
+
+
+
